@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -32,6 +33,16 @@ function App() {
   const [selected, setSelected] = useState<Room | null>(null);
   const [filter, setFilter] = useState<Status | "all">("all");
   const [search, setSearch] = useState("");
+  const ambient = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ambient, { toValue: 1, duration: 5200, useNativeDriver: true }),
+        Animated.timing(ambient, { toValue: 0, duration: 5200, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [ambient]);
 
   const loadRooms = () => {
     db.execSync(`CREATE TABLE IF NOT EXISTS rooms (
@@ -74,7 +85,11 @@ function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+      <View style={styles.background}>
+        <Animated.View style={[styles.orb, styles.orbOne, { opacity: ambient.interpolate({ inputRange: [0, 1], outputRange: [0.26, 0.52] }), transform: [{ translateY: ambient.interpolate({ inputRange: [0, 1], outputRange: [0, 42] }) }, { scale: ambient.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }] }]} />
+        <Animated.View style={[styles.orb, styles.orbTwo, { opacity: ambient.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.38] }), transform: [{ translateX: ambient.interpolate({ inputRange: [0, 1], outputRange: [0, -34] }) }, { scale: ambient.interpolate({ inputRange: [0, 1], outputRange: [1.12, 0.92] }) }] }]} />
+      </View>
       <View style={styles.container}>
         <View style={styles.header}>
           <View><Text style={styles.kicker}>COURTYARD RESIDENCE · FLOOR 05</Text><Text style={styles.title}>Room tracker</Text></View>
@@ -134,9 +149,9 @@ const labels: Record<Status, string> = { pending: "Not checked", connected: "Con
 const colors: Record<Status, string> = { pending: "#aeb8ad", connected: "#287d65", not_answered: "#d2805d" };
 const backgrounds: Record<Status, string> = { pending: "#ffffff", connected: "#e7f3df", not_answered: "#fff0e9" };
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f5f4ee" }, container: { flex: 1, paddingHorizontal: 18 },
-  header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#738078", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#10261f" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#c9d0c4", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#287d65", fontWeight: "800" },
-  summary: { backgroundColor: "#d9ebaf", borderRadius: 20, padding: 20, marginBottom: 15 }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#10261f" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#526159", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#b9d58b", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#10261f", borderRadius: 10 }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
+  safe: { flex: 1, backgroundColor: "#08121a" }, background: { ...StyleSheet.absoluteFill, overflow: "hidden", backgroundColor: "#08121a" }, orb: { position: "absolute", borderRadius: 999 }, orbOne: { width: 300, height: 300, backgroundColor: "#00d6b4", top: -110, right: -80 }, orbTwo: { width: 260, height: 260, backgroundColor: "#7d5cff", bottom: 80, left: -150 }, container: { flex: 1, paddingHorizontal: 18 },
+  header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
+  summary: { backgroundColor: "#102b35", borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "#1d4650" }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#f5fbff" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#a9bcc3", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#1b4550", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#62f0d5", borderRadius: 10 }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
   toolbar: { marginBottom: 12 }, search: { borderBottomWidth: 1, borderBottomColor: "#c9d0c4", paddingVertical: 10, fontSize: 15, color: "#10261f", marginBottom: 10 }, filters: { flexDirection: "row", gap: 6 }, filterButton: { paddingVertical: 7, paddingHorizontal: 10, borderRadius: 15, backgroundColor: "#e8ebe4" }, filterActive: { backgroundColor: "#10261f" }, filterText: { fontSize: 11, color: "#526159" }, filterTextActive: { color: "#fff" },
   grid: { paddingBottom: 25 }, row: { gap: 8, marginBottom: 8 }, card: { flex: 1, minHeight: 94, borderRadius: 13, padding: 12, justifyContent: "space-between", borderWidth: 1, borderColor: "#e0e4dc" }, roomNumber: { fontSize: 16, fontWeight: "700", color: "#10261f" }, cardStatus: { fontSize: 10, color: "#718078" }, noteMark: { fontSize: 9, color: "#287d65", fontWeight: "800" },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "#10261f66" }, sheetScrollContent: { justifyContent: "flex-end", flexGrow: 1 }, sheet: { backgroundColor: "#fdfdf9", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 26, paddingBottom: 36 }, close: { position: "absolute", right: 18, top: 12, padding: 8 }, closeText: { fontSize: 30, color: "#718078" }, sheetTitle: { fontSize: 48, letterSpacing: -2, fontWeight: "800", color: "#10261f" }, sheetStatus: { color: "#526159", marginTop: 5, marginBottom: 22 }, actions: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 24 }, action: { paddingVertical: 11, paddingHorizontal: 13, borderRadius: 9 }, connect: { backgroundColor: "#287d65" }, noAnswer: { backgroundColor: "#f4d0be" }, reset: { backgroundColor: "#e9ebe4" }, actionLight: { color: "#fff", fontWeight: "700", fontSize: 12 }, actionDark: { color: "#526159", fontWeight: "700", fontSize: 12 }, noteLabel: { fontWeight: "700", fontSize: 13, color: "#10261f" }, notes: { minHeight: 150, maxHeight: 260, borderWidth: 1, borderColor: "#d5d9ce", borderRadius: 12, marginTop: 9, padding: 13, textAlignVertical: "top", color: "#10261f", backgroundColor: "#fff" }, saved: { marginTop: 10, color: "#738078", fontSize: 11 },
