@@ -3,6 +3,7 @@ import {
   FlatList,
   Animated,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
@@ -33,6 +34,7 @@ function App() {
   const [selected, setSelected] = useState<Room | null>(null);
   const [filter, setFilter] = useState<Status | "all">("all");
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const ambient = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -109,8 +111,12 @@ function App() {
           </View>
         </View>
         <View style={styles.toolbar}>
-          <TextInput value={search} onChangeText={setSearch} placeholder="Search room number" placeholderTextColor="#829088" style={styles.search} />
-          <View style={styles.filters}>{(["all", "pending", "connected", "not_answered"] as const).map((value) => <Pressable key={value} onPress={() => setFilter(value)} style={[styles.filterButton, filter === value && styles.filterActive]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === "all" ? "All" : value === "not_answered" ? "No answer" : value}</Text></Pressable>)}</View>
+          <Animated.View style={[styles.searchShell, searchFocused && styles.searchShellFocused]}>
+            <Text style={styles.searchIcon}>⌕</Text>
+            <TextInput value={search} onChangeText={setSearch} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search room number" placeholderTextColor="#718894" style={styles.search} />
+            {search.length > 0 && <Pressable onPress={() => setSearch("")} style={styles.clearSearch}><Text style={styles.clearSearchText}>×</Text></Pressable>}
+          </Animated.View>
+          <View style={styles.filters}>{(["all", "pending", "connected", "not_answered"] as const).map((value) => <Pressable key={value} onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setFilter(value); }} style={[styles.filterButton, filter === value && styles.filterActive]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === "all" ? "All" : value === "not_answered" ? "No answer" : value}</Text></Pressable>)}</View>
         </View>
         <FlatList data={visibleRooms} keyExtractor={(room) => room.roomNumber} numColumns={3} columnWrapperStyle={styles.row} contentContainerStyle={styles.grid} renderItem={({ item }) => (
           <Pressable onPress={() => setSelected(item)} style={[styles.card, { backgroundColor: backgrounds[item.status] }]}><Text style={styles.roomNumber}>{item.roomNumber}</Text><Text style={styles.cardStatus}>{labels[item.status]}</Text>{item.note ? <Text style={styles.noteMark}>NOTE</Text> : null}</Pressable>
@@ -152,8 +158,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#08121a" }, background: { ...StyleSheet.absoluteFill, overflow: "hidden", backgroundColor: "#08121a" }, orb: { position: "absolute", borderRadius: 999 }, orbOne: { width: 300, height: 300, backgroundColor: "#00d6b4", top: -110, right: -80 }, orbTwo: { width: 260, height: 260, backgroundColor: "#7d5cff", bottom: 80, left: -150 }, container: { flex: 1, paddingHorizontal: 18 },
   header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
   summary: { backgroundColor: "#102b35", borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "#1d4650" }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#f5fbff" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#a9bcc3", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#1b4550", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#62f0d5", borderRadius: 10 }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
-  toolbar: { marginBottom: 12 }, search: { borderBottomWidth: 1, borderBottomColor: "#c9d0c4", paddingVertical: 10, fontSize: 15, color: "#10261f", marginBottom: 10 }, filters: { flexDirection: "row", gap: 6 }, filterButton: { paddingVertical: 7, paddingHorizontal: 10, borderRadius: 15, backgroundColor: "#e8ebe4" }, filterActive: { backgroundColor: "#10261f" }, filterText: { fontSize: 11, color: "#526159" }, filterTextActive: { color: "#fff" },
-  grid: { paddingBottom: 25 }, row: { gap: 8, marginBottom: 8 }, card: { flex: 1, minHeight: 94, borderRadius: 13, padding: 12, justifyContent: "space-between", borderWidth: 1, borderColor: "#e0e4dc" }, roomNumber: { fontSize: 16, fontWeight: "700", color: "#10261f" }, cardStatus: { fontSize: 10, color: "#718078" }, noteMark: { fontSize: 9, color: "#287d65", fontWeight: "800" },
+  toolbar: { marginBottom: 12 }, searchShell: { flexDirection: "row", alignItems: "center", backgroundColor: "#10232d", borderWidth: 1, borderColor: "#28424d", borderRadius: 14, paddingHorizontal: 12, marginBottom: 10 }, searchShellFocused: { borderColor: "#62f0d5", shadowColor: "#62f0d5", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }, searchIcon: { color: "#62f0d5", fontSize: 22, marginRight: 5 }, search: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#f5fbff" }, clearSearch: { padding: 4 }, clearSearchText: { color: "#a9bcc3", fontSize: 21 }, filters: { flexDirection: "row", gap: 6 }, filterButton: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: 15, backgroundColor: "#142c37", borderWidth: 1, borderColor: "#28424d" }, filterActive: { backgroundColor: "#62f0d5", borderColor: "#62f0d5" }, filterText: { fontSize: 11, color: "#a9bcc3", fontWeight: "600" }, filterTextActive: { color: "#08121a", fontWeight: "800" },
+  grid: { paddingBottom: 25 }, row: { gap: 8, marginBottom: 8 }, card: { flex: 1, minHeight: 94, borderRadius: 13, padding: 12, justifyContent: "space-between", borderWidth: 1, borderColor: "#28424d" }, roomNumber: { fontSize: 16, fontWeight: "700", color: "#f5fbff" }, cardStatus: { fontSize: 10, color: "#a9bcc3" }, noteMark: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "#10261f66" }, sheetScrollContent: { justifyContent: "flex-end", flexGrow: 1 }, sheet: { backgroundColor: "#fdfdf9", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 26, paddingBottom: 36 }, close: { position: "absolute", right: 18, top: 12, padding: 8 }, closeText: { fontSize: 30, color: "#718078" }, sheetTitle: { fontSize: 48, letterSpacing: -2, fontWeight: "800", color: "#10261f" }, sheetStatus: { color: "#526159", marginTop: 5, marginBottom: 22 }, actions: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 24 }, action: { paddingVertical: 11, paddingHorizontal: 13, borderRadius: 9 }, connect: { backgroundColor: "#287d65" }, noAnswer: { backgroundColor: "#f4d0be" }, reset: { backgroundColor: "#e9ebe4" }, actionLight: { color: "#fff", fontWeight: "700", fontSize: 12 }, actionDark: { color: "#526159", fontWeight: "700", fontSize: 12 }, noteLabel: { fontWeight: "700", fontSize: 13, color: "#10261f" }, notes: { minHeight: 150, maxHeight: 260, borderWidth: 1, borderColor: "#d5d9ce", borderRadius: 12, marginTop: 9, padding: 13, textAlignVertical: "top", color: "#10261f", backgroundColor: "#fff" }, saved: { marginTop: 10, color: "#738078", fontSize: 11 },
 });
 
