@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Courtyard Room Tracker",
-    "slug": "courtyard-room-tracker",
+    "name": "Courtyard Pulse",
+    "slug": "courtyard-pulse",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

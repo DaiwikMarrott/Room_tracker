@@ -1,4 +1,4 @@
-# Courtyard Room Tracker
+# Courtyard Pulse
 
 The repository's supported app is the native Expo application in [`mobile/`](./mobile). It tracks the 41 rooms shown on the fifth-floor Courtyard Residence plan:
 
