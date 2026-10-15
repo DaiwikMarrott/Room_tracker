@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -58,17 +61,15 @@ function App() {
     room.roomNumber.includes(search) && (filter === "all" || room.status === filter)
   );
 
-  const updateRoom = (changes: Partial<Pick<Room, "status" | "note">>) => {
-    if (!selected) return;
+  const updateRoom = (roomNumber: string, changes: Partial<Pick<Room, "status" | "note">>) => {
     db.runSync(
       "UPDATE rooms SET status = COALESCE(?, status), note = COALESCE(?, note) WHERE room_number = ?",
       changes.status ?? null,
       changes.note ?? null,
-      selected.roomNumber
+      roomNumber
     );
-    const next = { ...selected, ...changes };
-    setSelected(next);
-    setRooms((current) => current.map((room) => room.roomNumber === next.roomNumber ? next : room));
+    setSelected((current) => current?.roomNumber === roomNumber ? { ...current, ...changes } : current);
+    setRooms((current) => current.map((room) => room.roomNumber === roomNumber ? { ...room, ...changes } : room));
   };
 
   return (
@@ -101,15 +102,29 @@ function App() {
         )} />
       </View>
       <Modal visible={Boolean(selected)} animationType="slide" transparent onRequestClose={() => setSelected(null)}>
-        <View style={styles.modalBackdrop}><View style={styles.sheet}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalBackdrop}
+        >
+          <ScrollView
+            contentContainerStyle={styles.sheetScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.sheet}>
           <Pressable onPress={() => setSelected(null)} style={styles.close}><Text style={styles.closeText}>×</Text></Pressable>
           <Text style={styles.kicker}>ROOM</Text><Text style={styles.sheetTitle}>{selected?.roomNumber}</Text>
           <Text style={styles.sheetStatus}><View style={[styles.dot, { backgroundColor: colors[selected?.status ?? "pending"] }]} /> {labels[selected?.status ?? "pending"]}</Text>
-          <View style={styles.actions}><Pressable style={[styles.action, styles.connect]} onPress={() => updateRoom({ status: "connected" })}><Text style={styles.actionLight}>✓ Connected</Text></Pressable><Pressable style={[styles.action, styles.noAnswer]} onPress={() => updateRoom({ status: "not_answered" })}><Text style={styles.actionDark}>No answer</Text></Pressable><Pressable style={[styles.action, styles.reset]} onPress={() => updateRoom({ status: "pending" })}><Text style={styles.actionDark}>Reset</Text></Pressable></View>
+          <View style={styles.actions}><Pressable style={[styles.action, styles.connect]} onPress={() => selected && updateRoom(selected.roomNumber, { status: "connected" })}><Text style={styles.actionLight}>✓ Connected</Text></Pressable><Pressable style={[styles.action, styles.noAnswer]} onPress={() => selected && updateRoom(selected.roomNumber, { status: "not_answered" })}><Text style={styles.actionDark}>No answer</Text></Pressable><Pressable style={[styles.action, styles.reset]} onPress={() => selected && updateRoom(selected.roomNumber, { status: "pending" })}><Text style={styles.actionDark}>Reset</Text></Pressable></View>
           <Text style={styles.noteLabel}>Conversation notes</Text>
-          <TextInput multiline value={selected?.note ?? ""} onChangeText={(note) => setSelected((current) => current ? { ...current, note } : current)} onBlur={() => updateRoom({ note: selected?.note ?? "" })} placeholder="What did you talk about? Add a follow-up..." placeholderTextColor="#829088" style={styles.notes} />
+          <TextInput multiline value={selected?.note ?? ""} onChangeText={(note) => {
+            if (!selected) return;
+            updateRoom(selected.roomNumber, { note });
+          }} placeholder="What did you talk about? Add a follow-up..." placeholderTextColor="#829088" style={styles.notes} />
           <Text style={styles.saved}>Saved locally on this device</Text>
-        </View></View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -124,7 +139,7 @@ const styles = StyleSheet.create({
   summary: { backgroundColor: "#d9ebaf", borderRadius: 20, padding: 20, marginBottom: 15 }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#10261f" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#526159", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#b9d58b", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#10261f", borderRadius: 10 }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
   toolbar: { marginBottom: 12 }, search: { borderBottomWidth: 1, borderBottomColor: "#c9d0c4", paddingVertical: 10, fontSize: 15, color: "#10261f", marginBottom: 10 }, filters: { flexDirection: "row", gap: 6 }, filterButton: { paddingVertical: 7, paddingHorizontal: 10, borderRadius: 15, backgroundColor: "#e8ebe4" }, filterActive: { backgroundColor: "#10261f" }, filterText: { fontSize: 11, color: "#526159" }, filterTextActive: { color: "#fff" },
   grid: { paddingBottom: 25 }, row: { gap: 8, marginBottom: 8 }, card: { flex: 1, minHeight: 94, borderRadius: 13, padding: 12, justifyContent: "space-between", borderWidth: 1, borderColor: "#e0e4dc" }, roomNumber: { fontSize: 16, fontWeight: "700", color: "#10261f" }, cardStatus: { fontSize: 10, color: "#718078" }, noteMark: { fontSize: 9, color: "#287d65", fontWeight: "800" },
-  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "#10261f66" }, sheet: { backgroundColor: "#fdfdf9", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 26, paddingBottom: 36 }, close: { position: "absolute", right: 18, top: 12, padding: 8 }, closeText: { fontSize: 30, color: "#718078" }, sheetTitle: { fontSize: 48, letterSpacing: -2, fontWeight: "800", color: "#10261f" }, sheetStatus: { color: "#526159", marginTop: 5, marginBottom: 22 }, actions: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 24 }, action: { paddingVertical: 11, paddingHorizontal: 13, borderRadius: 9 }, connect: { backgroundColor: "#287d65" }, noAnswer: { backgroundColor: "#f4d0be" }, reset: { backgroundColor: "#e9ebe4" }, actionLight: { color: "#fff", fontWeight: "700", fontSize: 12 }, actionDark: { color: "#526159", fontWeight: "700", fontSize: 12 }, noteLabel: { fontWeight: "700", fontSize: 13, color: "#10261f" }, notes: { minHeight: 150, borderWidth: 1, borderColor: "#d5d9ce", borderRadius: 12, marginTop: 9, padding: 13, textAlignVertical: "top", color: "#10261f", backgroundColor: "#fff" }, saved: { marginTop: 10, color: "#738078", fontSize: 11 },
+  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "#10261f66" }, sheetScrollContent: { justifyContent: "flex-end", flexGrow: 1 }, sheet: { backgroundColor: "#fdfdf9", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 26, paddingBottom: 36 }, close: { position: "absolute", right: 18, top: 12, padding: 8 }, closeText: { fontSize: 30, color: "#718078" }, sheetTitle: { fontSize: 48, letterSpacing: -2, fontWeight: "800", color: "#10261f" }, sheetStatus: { color: "#526159", marginTop: 5, marginBottom: 22 }, actions: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 24 }, action: { paddingVertical: 11, paddingHorizontal: 13, borderRadius: 9 }, connect: { backgroundColor: "#287d65" }, noAnswer: { backgroundColor: "#f4d0be" }, reset: { backgroundColor: "#e9ebe4" }, actionLight: { color: "#fff", fontWeight: "700", fontSize: 12 }, actionDark: { color: "#526159", fontWeight: "700", fontSize: 12 }, noteLabel: { fontWeight: "700", fontSize: 13, color: "#10261f" }, notes: { minHeight: 150, maxHeight: 260, borderWidth: 1, borderColor: "#d5d9ce", borderRadius: 12, marginTop: 9, padding: 13, textAlignVertical: "top", color: "#10261f", backgroundColor: "#fff" }, saved: { marginTop: 10, color: "#738078", fontSize: 11 },
 });
 
 export default App;
