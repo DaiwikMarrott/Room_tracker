@@ -91,6 +91,12 @@ function App() {
     setSelected(null);
   };
 
+  const setSelectedStatus = (status: Status) => {
+    if (!selected) return;
+    updateRoom(selected.roomNumber, { status });
+    closeSelected();
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
@@ -152,7 +158,7 @@ function App() {
           </Pressable>
           <Text style={styles.kicker}>ROOM</Text><Text style={styles.sheetTitle}>{selected?.roomNumber}</Text>
           <Text style={styles.sheetStatus}><View style={[styles.dot, { backgroundColor: colors[selected?.status ?? "pending"] }]} /> {labels[selected?.status ?? "pending"]}</Text>
-          <View style={styles.actions}><Pressable style={[styles.action, styles.connect]} onPress={() => selected && updateRoom(selected.roomNumber, { status: "connected" })}><Text style={styles.actionLight}>✓ Connected</Text></Pressable><Pressable style={[styles.action, styles.noAnswer]} onPress={() => selected && updateRoom(selected.roomNumber, { status: "not_answered" })}><Text style={styles.actionDark}>No answer</Text></Pressable><Pressable style={[styles.action, styles.reset]} onPress={() => selected && updateRoom(selected.roomNumber, { status: "pending" })}><Text style={styles.actionDark}>Reset</Text></Pressable></View>
+          <View style={styles.actions}><Pressable accessibilityLabel="Mark room connected" accessibilityRole="button" style={[styles.action, styles.connect]} onPress={() => setSelectedStatus("connected")}><Text style={styles.actionLight}>✓ Connected</Text></Pressable><Pressable accessibilityLabel="Mark room no answer" accessibilityRole="button" style={[styles.action, styles.noAnswer]} onPress={() => setSelectedStatus("not_answered")}><Text style={styles.actionDark}>No answer</Text></Pressable><Pressable accessibilityLabel="Reset room status" accessibilityRole="button" style={[styles.action, styles.reset]} onPress={() => setSelectedStatus("pending")}><Text style={styles.actionDark}>Reset</Text></Pressable></View>
           <Text style={styles.noteLabel}>Conversation notes</Text>
           <TextInput multiline value={selected?.note ?? ""} onChangeText={(note) => {
             if (!selected) return;
