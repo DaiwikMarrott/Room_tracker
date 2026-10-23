@@ -127,12 +127,12 @@ function App() {
           <Animated.View style={[styles.searchShell, searchFocused && styles.searchShellFocused]}>
             <Text style={styles.searchIcon}>⌕</Text>
             <TextInput value={search} onChangeText={setSearch} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search room number" placeholderTextColor="#718894" style={styles.search} />
-            {search.length > 0 && <Pressable onPress={() => setSearch("")} style={styles.clearSearch}><Text style={styles.clearSearchText}>×</Text></Pressable>}
+            {search.length > 0 && <Pressable accessibilityLabel="Clear room search" accessibilityRole="button" hitSlop={10} onPress={() => setSearch("")} style={styles.clearSearch}><Text style={styles.clearSearchText}>×</Text></Pressable>}
           </Animated.View>
           <View style={styles.filters}>{(["all", "pending", "connected", "not_answered"] as const).map((value) => <Pressable key={value} onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setFilter(value); }} style={[styles.filterButton, filter === value && styles.filterActive]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === "all" ? "All" : value === "not_answered" ? "No answer" : value}</Text></Pressable>)}</View>
         </View>
         <FlatList data={visibleRooms} keyExtractor={(room) => room.roomNumber} numColumns={3} columnWrapperStyle={styles.row} contentContainerStyle={styles.grid} renderItem={({ item }) => (
-          <Pressable onPress={() => setSelected(item)} style={[styles.card, { backgroundColor: backgrounds[item.status] }]}><Text style={styles.roomNumber}>{item.roomNumber}</Text><Text style={styles.cardStatus}>{labels[item.status]}</Text>{item.note ? <Text style={styles.noteMark}>NOTE</Text> : null}</Pressable>
+          <Pressable accessibilityLabel={`Open room ${item.roomNumber}`} accessibilityHint="Edit room status and conversation notes" accessibilityRole="button" onPress={() => setSelected(item)} style={[styles.card, { backgroundColor: backgrounds[item.status] }]}><Text style={styles.roomNumber}>{item.roomNumber}</Text><Text style={styles.cardStatus}>{labels[item.status]}</Text>{item.note ? <Text style={styles.noteMark}>NOTE</Text> : null}</Pressable>
         )} />
       </View>
       <Modal visible={Boolean(selected)} animationType="slide" transparent onRequestClose={closeSelected}>
