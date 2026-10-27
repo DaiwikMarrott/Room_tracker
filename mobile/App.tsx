@@ -19,7 +19,7 @@ import * as SQLite from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 
 type Status = "pending" | "connected" | "not_answered";
-type Room = { roomNumber: string; status: Status; note: string };
+type Room = { roomNumber: string; status: Status; note: string; followUp: number };
 type StatusChange = { roomNumber: string; previousStatus: Status };
 const NOTE_MAX_LENGTH = 500;
 
@@ -36,6 +36,7 @@ function App() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selected, setSelected] = useState<Room | null>(null);
   const [filter, setFilter] = useState<Status | "all">("all");
+  const [showFollowUps, setShowFollowUps] = useState(false);
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [lastStatusChange, setLastStatusChange] = useState<StatusChange | null>(null);
@@ -54,8 +55,13 @@ function App() {
     db.execSync(`CREATE TABLE IF NOT EXISTS rooms (
       room_number TEXT PRIMARY KEY NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
-      note TEXT NOT NULL DEFAULT ''
+      note TEXT NOT NULL DEFAULT '',
+      follow_up INTEGER NOT NULL DEFAULT 0
     );`);
+    const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(rooms)");
+    if (!columns.some((column) => column.name === "follow_up")) {
+      db.execSync("ALTER TABLE rooms ADD COLUMN follow_up INTEGER NOT NULL DEFAULT 0");
+    }
     const insert = db.prepareSync("INSERT OR IGNORE INTO rooms (room_number) VALUES (?)");
     try {
       roomNumbers.forEach((roomNumber) => insert.executeSync(roomNumber));
@@ -63,7 +69,7 @@ function App() {
       insert.finalizeSync();
     }
     setRooms(db.getAllSync<Room>(
-      "SELECT room_number as roomNumber, status, note FROM rooms ORDER BY room_number"
+      "SELECT room_number as roomNumber, status, note, follow_up as followUp FROM rooms ORDER BY room_number"
     ));
   };
 
@@ -75,15 +81,16 @@ function App() {
   }, { pending: 0, connected: 0, not_answered: 0 } as Record<Status, number>), [rooms]);
 
   const visibleRooms = rooms.filter((room) =>
-    room.roomNumber.includes(search) && (filter === "all" || room.status === filter)
+    room.roomNumber.includes(search) && (filter === "all" || room.status === filter) && (!showFollowUps || room.followUp === 1)
   );
   const nextRoom = rooms.find((room) => room.status === "pending");
 
-  const updateRoom = (roomNumber: string, changes: Partial<Pick<Room, "status" | "note">>) => {
+  const updateRoom = (roomNumber: string, changes: Partial<Pick<Room, "status" | "note" | "followUp">>) => {
     db.runSync(
-      "UPDATE rooms SET status = COALESCE(?, status), note = COALESCE(?, note) WHERE room_number = ?",
+      "UPDATE rooms SET status = COALESCE(?, status), note = COALESCE(?, note), follow_up = COALESCE(?, follow_up) WHERE room_number = ?",
       changes.status ?? null,
       changes.note ?? null,
+      changes.followUp ?? null,
       roomNumber
     );
     setSelected((current) => current?.roomNumber === roomNumber ? { ...current, ...changes } : current);
@@ -169,7 +176,7 @@ function App() {
             <TextInput value={search} onChangeText={setSearch} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search room number" placeholderTextColor="#718894" style={styles.search} />
             {search.length > 0 && <Pressable accessibilityLabel="Clear room search" accessibilityRole="button" hitSlop={10} onPress={() => setSearch("")} style={styles.clearSearch}><Text style={styles.clearSearchText}>×</Text></Pressable>}
           </Animated.View>
-          <View style={styles.filters}>{(["all", "pending", "connected", "not_answered"] as const).map((value) => <Pressable key={value} onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setFilter(value); }} style={[styles.filterButton, filter === value && styles.filterActive]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === "all" ? "All" : value === "not_answered" ? "No answer" : value}</Text></Pressable>)}</View>
+          <View style={styles.filters}>{(["all", "pending", "connected", "not_answered"] as const).map((value) => <Pressable key={value} onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setFilter(value); }} style={[styles.filterButton, filter === value && !showFollowUps && styles.filterActive]}><Text style={[styles.filterText, filter === value && !showFollowUps && styles.filterTextActive]}>{value === "all" ? "All" : value === "not_answered" ? "No answer" : value}</Text></Pressable>)}<Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setShowFollowUps((current) => !current); }} style={[styles.filterButton, showFollowUps && styles.followUpActive]}><Text style={[styles.filterText, showFollowUps && styles.filterTextActive]}>↗ Follow-up</Text></Pressable></View>
         </View>
         <FlatList data={visibleRooms} keyExtractor={(room) => room.roomNumber} numColumns={3} columnWrapperStyle={styles.row} contentContainerStyle={styles.grid} renderItem={({ item }) => (
           <Pressable accessibilityLabel={`Open room ${item.roomNumber}`} accessibilityHint="Edit room status and conversation notes" accessibilityRole="button" onPress={() => setSelected(item)} style={({ pressed }) => [styles.card, { backgroundColor: backgrounds[item.status] }, pressed && styles.cardPressed]}>
@@ -216,6 +223,13 @@ function App() {
           <Text style={styles.kicker}>ROOM</Text><Text style={styles.sheetTitle}>{selected?.roomNumber}</Text>
           <Text style={styles.sheetStatus}><View style={[styles.dot, { backgroundColor: colors[selected?.status ?? "pending"] }]} /> {labels[selected?.status ?? "pending"]}</Text>
           <View style={styles.actions}><Pressable accessibilityLabel="Mark room connected" accessibilityRole="button" style={[styles.action, styles.connect]} onPress={() => setSelectedStatus("connected")}><Text style={styles.actionLight}>✓ Connected</Text></Pressable><Pressable accessibilityLabel="Mark room no answer" accessibilityRole="button" style={[styles.action, styles.noAnswer]} onPress={() => setSelectedStatus("not_answered")}><Text style={styles.actionDark}>No answer</Text></Pressable><Pressable accessibilityLabel="Reset room status" accessibilityRole="button" style={[styles.action, styles.reset]} onPress={() => setSelectedStatus("pending")}><Text style={styles.actionDark}>Reset</Text></Pressable></View>
+          <Pressable accessibilityLabel={selected?.followUp ? "Remove room follow-up flag" : "Flag room for follow-up"} accessibilityRole="checkbox" accessibilityState={{ checked: selected?.followUp === 1 }} onPress={() => {
+            if (!selected) return;
+            updateRoom(selected.roomNumber, { followUp: selected.followUp === 1 ? 0 : 1 });
+          }} style={styles.followUpToggle}>
+            <View style={[styles.followUpBox, selected?.followUp === 1 && styles.followUpBoxChecked]}><Text style={styles.followUpCheck}>{selected?.followUp === 1 ? "✓" : ""}</Text></View>
+            <View><Text style={styles.followUpTitle}>Needs follow-up</Text><Text style={styles.followUpHint}>Keep this room in your action queue</Text></View>
+          </Pressable>
           <Text style={styles.noteLabel}>Conversation notes</Text>
           <TextInput multiline maxLength={NOTE_MAX_LENGTH} value={selected?.note ?? ""} onChangeText={(note) => {
             if (!selected) return;
@@ -239,9 +253,9 @@ const styles = StyleSheet.create({
   header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
   summary: { backgroundColor: "#102b35", borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "#1d4650" }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#f5fbff" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#a9bcc3", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#1b4550", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#62f0d5", borderRadius: 10 }, nextRoomButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#62f0d5", borderRadius: 13, padding: 11, marginBottom: 17 }, nextRoomDisabled: { backgroundColor: "#23434a" }, nextRoomPressed: { transform: [{ scale: 0.98 }], backgroundColor: "#a5fff0" }, nextRoomIcon: { color: "#08121a", fontSize: 23, fontWeight: "800", width: 30, textAlign: "center" }, nextRoomCopy: { flex: 1 }, nextRoomEyebrow: { color: "#246357", fontSize: 9, fontWeight: "800", letterSpacing: 1 }, nextRoomTitle: { color: "#08121a", fontSize: 13, fontWeight: "800", marginTop: 2 }, nextRoomDisabledText: { color: "#9bb6b8" }, nextRoomArrow: { color: "#08121a", fontSize: 25, fontWeight: "300" }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
   undoBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#18343e", borderRadius: 13, borderWidth: 1, borderColor: "#2b5961", paddingVertical: 9, paddingHorizontal: 13, marginBottom: 12 }, undoText: { color: "#c5d5d8", fontSize: 12, fontWeight: "600" }, undoButton: { backgroundColor: "#f0c674", borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 }, undoButtonText: { color: "#08121a", fontSize: 11, fontWeight: "800" },
-  toolbar: { marginBottom: 12 }, searchShell: { flexDirection: "row", alignItems: "center", backgroundColor: "#10232d", borderWidth: 1, borderColor: "#28424d", borderRadius: 14, paddingHorizontal: 12, marginBottom: 10 }, searchShellFocused: { borderColor: "#62f0d5", shadowColor: "#62f0d5", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }, searchIcon: { color: "#62f0d5", fontSize: 22, marginRight: 5 }, search: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#f5fbff" }, clearSearch: { padding: 4 }, clearSearchText: { color: "#a9bcc3", fontSize: 21 }, filters: { flexDirection: "row", gap: 6 }, filterButton: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: 15, backgroundColor: "#142c37", borderWidth: 1, borderColor: "#28424d" }, filterActive: { backgroundColor: "#62f0d5", borderColor: "#62f0d5" }, filterText: { fontSize: 11, color: "#a9bcc3", fontWeight: "600" }, filterTextActive: { color: "#08121a", fontWeight: "800" },
+  toolbar: { marginBottom: 12 }, searchShell: { flexDirection: "row", alignItems: "center", backgroundColor: "#10232d", borderWidth: 1, borderColor: "#28424d", borderRadius: 14, paddingHorizontal: 12, marginBottom: 10 }, searchShellFocused: { borderColor: "#62f0d5", shadowColor: "#62f0d5", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }, searchIcon: { color: "#62f0d5", fontSize: 22, marginRight: 5 }, search: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#f5fbff" }, clearSearch: { padding: 4 }, clearSearchText: { color: "#a9bcc3", fontSize: 21 }, filters: { flexDirection: "row", gap: 6, flexWrap: "wrap" }, filterButton: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: 15, backgroundColor: "#142c37", borderWidth: 1, borderColor: "#28424d" }, filterActive: { backgroundColor: "#62f0d5", borderColor: "#62f0d5" }, followUpActive: { backgroundColor: "#f0c674", borderColor: "#f0c674" }, filterText: { fontSize: 11, color: "#a9bcc3", fontWeight: "600" }, filterTextActive: { color: "#08121a", fontWeight: "800" },
   grid: { paddingBottom: 25 }, row: { gap: 8, marginBottom: 8 }, card: { flex: 1, minHeight: 94, borderRadius: 13, padding: 12, justifyContent: "space-between", borderWidth: 1, borderColor: "#28424d" }, cardPressed: { transform: [{ scale: 0.97 }], opacity: 0.9 }, roomNumber: { fontSize: 16, fontWeight: "700", color: "#f5fbff" }, cardStatus: { fontSize: 10, color: "#a9bcc3" }, noteMark: { fontSize: 9, color: "#62f0d5", fontWeight: "800" }, quickAction: { alignSelf: "flex-start", marginTop: 7, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "#62f0d5" }, quickActionPressed: { backgroundColor: "#b1fff0", transform: [{ scale: 0.95 }] }, quickActionText: { color: "#08121a", fontSize: 10, fontWeight: "800" },
-  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" }, modalKeyboard: { flex: 1, justifyContent: "flex-end" }, sheetScrollContent: { justifyContent: "flex-end", flexGrow: 1 }, sheet: { backgroundColor: "#0d1d26", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 26, paddingBottom: 36, borderWidth: 1, borderColor: "#28424d" }, close: { position: "absolute", right: 12, top: 8, width: 44, height: 44, alignItems: "center", justifyContent: "center", zIndex: 1 }, closeText: { fontSize: 30, lineHeight: 34, color: "#a9bcc3" }, sheetTitle: { fontSize: 48, letterSpacing: -2, fontWeight: "800", color: "#f5fbff" }, sheetStatus: { color: "#a9bcc3", marginTop: 5, marginBottom: 22 }, actions: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 24 }, action: { paddingVertical: 11, paddingHorizontal: 13, borderRadius: 9 }, connect: { backgroundColor: "#287d65" }, noAnswer: { backgroundColor: "#d2805d" }, reset: { backgroundColor: "#28424d" }, actionLight: { color: "#fff", fontWeight: "700", fontSize: 12 }, actionDark: { color: "#f5fbff", fontWeight: "700", fontSize: 12 }, noteLabel: { fontWeight: "700", fontSize: 13, color: "#f5fbff" }, notes: { minHeight: 180, maxHeight: 300, borderWidth: 1, borderColor: "#385766", borderRadius: 12, marginTop: 9, padding: 13, textAlignVertical: "top", color: "#f5fbff", backgroundColor: "#10232d" }, noteFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, saved: { marginTop: 10, color: "#8da2ac", fontSize: 11 }, noteCount: { marginTop: 10, color: "#8da2ac", fontSize: 11 },
+  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" }, modalKeyboard: { flex: 1, justifyContent: "flex-end" }, sheetScrollContent: { justifyContent: "flex-end", flexGrow: 1 }, sheet: { backgroundColor: "#0d1d26", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 26, paddingBottom: 36, borderWidth: 1, borderColor: "#28424d" }, close: { position: "absolute", right: 12, top: 8, width: 44, height: 44, alignItems: "center", justifyContent: "center", zIndex: 1 }, closeText: { fontSize: 30, lineHeight: 34, color: "#a9bcc3" }, sheetTitle: { fontSize: 48, letterSpacing: -2, fontWeight: "800", color: "#f5fbff" }, sheetStatus: { color: "#a9bcc3", marginTop: 5, marginBottom: 22 }, actions: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 24 }, action: { paddingVertical: 11, paddingHorizontal: 13, borderRadius: 9 }, connect: { backgroundColor: "#287d65" }, noAnswer: { backgroundColor: "#d2805d" }, reset: { backgroundColor: "#28424d" }, actionLight: { color: "#fff", fontWeight: "700", fontSize: 12 }, actionDark: { color: "#f5fbff", fontWeight: "700", fontSize: 12 }, followUpToggle: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, borderColor: "#385766", backgroundColor: "#10232d", padding: 12, marginBottom: 19 }, followUpBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 1, borderColor: "#6d8b91", marginRight: 10, alignItems: "center", justifyContent: "center" }, followUpBoxChecked: { backgroundColor: "#f0c674", borderColor: "#f0c674" }, followUpCheck: { color: "#08121a", fontWeight: "900" }, followUpTitle: { color: "#f5fbff", fontSize: 13, fontWeight: "800" }, followUpHint: { color: "#8da2ac", fontSize: 11, marginTop: 2 }, noteLabel: { fontWeight: "700", fontSize: 13, color: "#f5fbff" }, notes: { minHeight: 180, maxHeight: 300, borderWidth: 1, borderColor: "#385766", borderRadius: 12, marginTop: 9, padding: 13, textAlignVertical: "top", color: "#f5fbff", backgroundColor: "#10232d" }, noteFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, saved: { marginTop: 10, color: "#8da2ac", fontSize: 11 }, noteCount: { marginTop: 10, color: "#8da2ac", fontSize: 11 },
 });
 
 export default App;
