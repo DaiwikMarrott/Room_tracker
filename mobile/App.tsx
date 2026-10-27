@@ -77,6 +77,7 @@ function App() {
   const visibleRooms = rooms.filter((room) =>
     room.roomNumber.includes(search) && (filter === "all" || room.status === filter)
   );
+  const nextRoom = rooms.find((room) => room.status === "pending");
 
   const updateRoom = (roomNumber: string, changes: Partial<Pick<Room, "status" | "note">>) => {
     db.runSync(
@@ -132,6 +133,20 @@ function App() {
           <Text style={styles.total}>{counts.connected + counts.not_answered}<Text style={styles.totalSmall}> / {rooms.length}</Text></Text>
           <Text style={styles.subtle}>rooms visited · saved on this phone</Text>
           <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${rooms.length ? ((counts.connected + counts.not_answered) / rooms.length) * 100 : 0}%` }]} /></View>
+          <Pressable
+            accessibilityLabel={nextRoom ? `Open next pending room ${nextRoom.roomNumber}` : "All rooms checked"}
+            accessibilityRole="button"
+            disabled={!nextRoom}
+            onPress={() => nextRoom && setSelected(nextRoom)}
+            style={({ pressed }) => [styles.nextRoomButton, !nextRoom && styles.nextRoomDisabled, pressed && nextRoom && styles.nextRoomPressed]}
+          >
+            <Text style={styles.nextRoomIcon}>{nextRoom ? "→" : "✓"}</Text>
+            <View style={styles.nextRoomCopy}>
+              <Text style={[styles.nextRoomEyebrow, !nextRoom && styles.nextRoomDisabledText]}>{nextRoom ? "KEEP MOVING" : "FLOOR COMPLETE"}</Text>
+              <Text style={[styles.nextRoomTitle, !nextRoom && styles.nextRoomDisabledText]}>{nextRoom ? `Open room ${nextRoom.roomNumber}` : "Every room has a status"}</Text>
+            </View>
+            {nextRoom ? <Text style={styles.nextRoomArrow}>›</Text> : null}
+          </Pressable>
           <View style={styles.legend}>
             {(["connected", "not_answered", "pending"] as Status[]).map((status) => (
               <Pressable key={status} onPress={() => setFilter(filter === status ? "all" : status)} style={styles.legendItem}>
@@ -222,7 +237,7 @@ const backgrounds: Record<Status, string> = { pending: "#10232d", connected: "#1
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#08121a" }, background: { ...StyleSheet.absoluteFill, overflow: "hidden", backgroundColor: "#08121a" }, orb: { position: "absolute", borderRadius: 999 }, orbOne: { width: 300, height: 300, backgroundColor: "#00d6b4", top: -110, right: -80 }, orbTwo: { width: 260, height: 260, backgroundColor: "#7d5cff", bottom: 80, left: -150 }, container: { flex: 1, paddingHorizontal: 18 },
   header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
-  summary: { backgroundColor: "#102b35", borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "#1d4650" }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#f5fbff" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#a9bcc3", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#1b4550", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#62f0d5", borderRadius: 10 }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
+  summary: { backgroundColor: "#102b35", borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "#1d4650" }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#f5fbff" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#a9bcc3", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#1b4550", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#62f0d5", borderRadius: 10 }, nextRoomButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#62f0d5", borderRadius: 13, padding: 11, marginBottom: 17 }, nextRoomDisabled: { backgroundColor: "#23434a" }, nextRoomPressed: { transform: [{ scale: 0.98 }], backgroundColor: "#a5fff0" }, nextRoomIcon: { color: "#08121a", fontSize: 23, fontWeight: "800", width: 30, textAlign: "center" }, nextRoomCopy: { flex: 1 }, nextRoomEyebrow: { color: "#246357", fontSize: 9, fontWeight: "800", letterSpacing: 1 }, nextRoomTitle: { color: "#08121a", fontSize: 13, fontWeight: "800", marginTop: 2 }, nextRoomDisabledText: { color: "#9bb6b8" }, nextRoomArrow: { color: "#08121a", fontSize: 25, fontWeight: "300" }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
   undoBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#18343e", borderRadius: 13, borderWidth: 1, borderColor: "#2b5961", paddingVertical: 9, paddingHorizontal: 13, marginBottom: 12 }, undoText: { color: "#c5d5d8", fontSize: 12, fontWeight: "600" }, undoButton: { backgroundColor: "#f0c674", borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 }, undoButtonText: { color: "#08121a", fontSize: 11, fontWeight: "800" },
   toolbar: { marginBottom: 12 }, searchShell: { flexDirection: "row", alignItems: "center", backgroundColor: "#10232d", borderWidth: 1, borderColor: "#28424d", borderRadius: 14, paddingHorizontal: 12, marginBottom: 10 }, searchShellFocused: { borderColor: "#62f0d5", shadowColor: "#62f0d5", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }, searchIcon: { color: "#62f0d5", fontSize: 22, marginRight: 5 }, search: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#f5fbff" }, clearSearch: { padding: 4 }, clearSearchText: { color: "#a9bcc3", fontSize: 21 }, filters: { flexDirection: "row", gap: 6 }, filterButton: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: 15, backgroundColor: "#142c37", borderWidth: 1, borderColor: "#28424d" }, filterActive: { backgroundColor: "#62f0d5", borderColor: "#62f0d5" }, filterText: { fontSize: 11, color: "#a9bcc3", fontWeight: "600" }, filterTextActive: { color: "#08121a", fontWeight: "800" },
   grid: { paddingBottom: 25 }, row: { gap: 8, marginBottom: 8 }, card: { flex: 1, minHeight: 94, borderRadius: 13, padding: 12, justifyContent: "space-between", borderWidth: 1, borderColor: "#28424d" }, cardPressed: { transform: [{ scale: 0.97 }], opacity: 0.9 }, roomNumber: { fontSize: 16, fontWeight: "700", color: "#f5fbff" }, cardStatus: { fontSize: 10, color: "#a9bcc3" }, noteMark: { fontSize: 9, color: "#62f0d5", fontWeight: "800" }, quickAction: { alignSelf: "flex-start", marginTop: 7, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "#62f0d5" }, quickActionPressed: { backgroundColor: "#b1fff0", transform: [{ scale: 0.95 }] }, quickActionText: { color: "#08121a", fontSize: 10, fontWeight: "800" },
