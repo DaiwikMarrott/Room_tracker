@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import * as SQLite from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
 
 type Status = "pending" | "connected" | "not_answered";
 type Room = { roomNumber: string; status: Status; note: string; followUp: number };
@@ -40,6 +42,8 @@ function App() {
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [lastStatusChange, setLastStatusChange] = useState<StatusChange | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const ambient = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -123,6 +127,38 @@ function App() {
     setLastStatusChange(null);
   };
 
+  const exportRooms = async () => {
+    if (exporting) return;
+    setExportError(null);
+    setExporting(true);
+    try {
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error("Sharing is not available on this device.");
+      }
+      const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+      const csv = [
+        "Room,Status,Follow-up,Conversation notes",
+        ...rooms.map((room) => [
+          escapeCsv(room.roomNumber),
+          escapeCsv(labels[room.status]),
+          escapeCsv(room.followUp === 1 ? "Yes" : "No"),
+          escapeCsv(room.note),
+        ].join(",")),
+      ].join("\n");
+      const file = new File(Paths.cache, `courtyard-room-log-${new Date().toISOString().slice(0, 10)}.csv`);
+      file.create({ overwrite: true });
+      file.write(csv);
+      await Sharing.shareAsync(file.uri, {
+        mimeType: "text/csv",
+        dialogTitle: "Share room log",
+      });
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "The room log could not be exported.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
@@ -133,8 +169,14 @@ function App() {
       <View style={styles.container}>
         <View style={styles.header}>
           <View><Text style={styles.kicker}>COURTYARD RESIDENCE · FLOOR 05</Text><Text style={styles.title}>Room tracker</Text></View>
+        <View style={styles.headerActions}>
+          <Pressable accessibilityLabel="Export room log" accessibilityRole="button" disabled={exporting} onPress={exportRooms} style={({ pressed }) => [styles.exportButton, pressed && styles.exportPressed, exporting && styles.exportDisabled]}>
+            <Text style={styles.exportIcon}>{exporting ? "…" : "↑"}</Text><Text style={styles.exportText}>{exporting ? "Preparing" : "Export"}</Text>
+          </Pressable>
           <View style={styles.localBadge}><Text style={styles.localBadgeText}>ON DEVICE</Text></View>
         </View>
+        </View>
+        {exportError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{exportError}</Text><Pressable accessibilityLabel="Dismiss export error" accessibilityRole="button" onPress={() => setExportError(null)}><Text style={styles.errorDismiss}>×</Text></Pressable></View> : null}
         <View style={styles.summary}>
           <Text style={styles.kicker}>CHECK-IN PROGRESS</Text>
           <Text style={styles.total}>{counts.connected + counts.not_answered}<Text style={styles.totalSmall}> / {rooms.length}</Text></Text>
@@ -250,7 +292,8 @@ const colors: Record<Status, string> = { pending: "#aeb8ad", connected: "#287d65
 const backgrounds: Record<Status, string> = { pending: "#10232d", connected: "#123d3c", not_answered: "#3c292d" };
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#08121a" }, background: { ...StyleSheet.absoluteFill, overflow: "hidden", backgroundColor: "#08121a" }, orb: { position: "absolute", borderRadius: 999 }, orbOne: { width: 300, height: 300, backgroundColor: "#00d6b4", top: -110, right: -80 }, orbTwo: { width: 260, height: 260, backgroundColor: "#7d5cff", bottom: 80, left: -150 }, container: { flex: 1, paddingHorizontal: 18 },
-  header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
+  header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, headerActions: { alignItems: "flex-end", gap: 8 }, exportButton: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 18, backgroundColor: "#62f0d5", paddingHorizontal: 11, paddingVertical: 7 }, exportPressed: { transform: [{ scale: 0.94 }], backgroundColor: "#b1fff0" }, exportDisabled: { opacity: 0.65 }, exportIcon: { color: "#08121a", fontSize: 16, fontWeight: "900" }, exportText: { color: "#08121a", fontSize: 10, fontWeight: "800" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
+  errorBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#4b282c", borderRadius: 12, borderWidth: 1, borderColor: "#a95455", padding: 11, marginBottom: 12 }, errorText: { flex: 1, color: "#ffd6d0", fontSize: 12 }, errorDismiss: { color: "#ffd6d0", fontSize: 22, paddingLeft: 10 },
   summary: { backgroundColor: "#102b35", borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "#1d4650" }, total: { fontSize: 48, lineHeight: 51, fontWeight: "800", letterSpacing: -2, color: "#f5fbff" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#a9bcc3", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#1b4550", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#62f0d5", borderRadius: 10 }, nextRoomButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#62f0d5", borderRadius: 13, padding: 11, marginBottom: 17 }, nextRoomDisabled: { backgroundColor: "#23434a" }, nextRoomPressed: { transform: [{ scale: 0.98 }], backgroundColor: "#a5fff0" }, nextRoomIcon: { color: "#08121a", fontSize: 23, fontWeight: "800", width: 30, textAlign: "center" }, nextRoomCopy: { flex: 1 }, nextRoomEyebrow: { color: "#246357", fontSize: 9, fontWeight: "800", letterSpacing: 1 }, nextRoomTitle: { color: "#08121a", fontSize: 13, fontWeight: "800", marginTop: 2 }, nextRoomDisabledText: { color: "#9bb6b8" }, nextRoomArrow: { color: "#08121a", fontSize: 25, fontWeight: "300" }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
   undoBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#18343e", borderRadius: 13, borderWidth: 1, borderColor: "#2b5961", paddingVertical: 9, paddingHorizontal: 13, marginBottom: 12 }, undoText: { color: "#c5d5d8", fontSize: 12, fontWeight: "600" }, undoButton: { backgroundColor: "#f0c674", borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 }, undoButtonText: { color: "#08121a", fontSize: 11, fontWeight: "800" },
   toolbar: { marginBottom: 12 }, searchShell: { flexDirection: "row", alignItems: "center", backgroundColor: "#10232d", borderWidth: 1, borderColor: "#28424d", borderRadius: 14, paddingHorizontal: 12, marginBottom: 10 }, searchShellFocused: { borderColor: "#62f0d5", shadowColor: "#62f0d5", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }, searchIcon: { color: "#62f0d5", fontSize: 22, marginRight: 5 }, search: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#f5fbff" }, clearSearch: { padding: 4 }, clearSearchText: { color: "#a9bcc3", fontSize: 21 }, filters: { flexDirection: "row", gap: 6, flexWrap: "wrap" }, filterButton: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: 15, backgroundColor: "#142c37", borderWidth: 1, borderColor: "#28424d" }, filterActive: { backgroundColor: "#62f0d5", borderColor: "#62f0d5" }, followUpActive: { backgroundColor: "#f0c674", borderColor: "#f0c674" }, filterText: { fontSize: 11, color: "#a9bcc3", fontWeight: "600" }, filterTextActive: { color: "#08121a", fontWeight: "800" },

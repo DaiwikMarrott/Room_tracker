@@ -23,6 +23,8 @@ Statuses and conversation notes are stored in SQLite on the device. The app does
 
 If Expo Go reports `Cannot find native module 'ExpoAsset'`, update Expo Go, stop Metro with `Control+C`, and rerun the command above. The project includes the SDK-compatible `expo-asset` dependency and the `--clear` flag removes stale Metro bundles.
 
+The header's **Export** action creates a CSV room log containing each room's status, follow-up flag, and conversation notes, then opens the native share sheet for backup or handoff.
+
 ## Validate the native app
 
 ```bash
@@ -39,7 +41,7 @@ npx expo run:ios --device
 
 ## Data and privacy
 
-The mobile app creates `courtyard-room-tracker.db` in the app's private SQLite storage. Notes are not uploaded anywhere. Deleting the app deletes its local database, so add an export/backup feature before relying on this as the only copy of important records.
+The mobile app creates `courtyard-room-tracker.db` in the app's private SQLite storage. Notes are not uploaded anywhere. Deleting the app deletes its local database. Use the in-app export action to keep a backup of important records.
 
 The supplied source plan is stored at [`mobile/assets/courtyard-floor-plan.pdf`](./mobile/assets/courtyard-floor-plan.pdf). It is reference material; the room seed is kept in [`mobile/App.tsx`](./mobile/App.tsx) so the displayed list is explicit and reviewable.
 
