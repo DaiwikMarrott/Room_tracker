@@ -51,3 +51,7 @@ export function recordVisit(room: RoomRecord, visitedAt: string) {
 export function sortByPriority(rooms: RoomRecord[]) {
   return [...rooms].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.roomNumber.localeCompare(b.roomNumber));
 }
+
+export function withStatus(rooms: RoomRecord[], status: Status) {
+  return rooms.map((room) => ({ ...room, status }));
+}

@@ -6,6 +6,7 @@ import {
   recordVisit,
   roomLogCsv,
   sortByPriority,
+  withStatus,
   type RoomRecord,
 } from "./trackerLogic";
 
@@ -46,5 +47,11 @@ describe("room tracker logic", () => {
       { ...rooms[1], priority: 2 },
     ]);
     expect(sorted.map((room) => room.roomNumber)).toEqual(["5210", "5211", "5212"]);
+  });
+
+  it("applies a bulk status without mutating the source list", () => {
+    const updated = withStatus(rooms, "connected");
+    expect(updated.every((room) => room.status === "connected")).toBe(true);
+    expect(rooms[0].status).toBe("pending");
   });
 });
