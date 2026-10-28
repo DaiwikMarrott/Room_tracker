@@ -6,6 +6,7 @@ export type RoomRecord = {
   note: string;
   followUp: number;
   visitedAt?: string | null;
+  priority?: number;
 };
 
 export function filterRooms(
@@ -31,10 +32,11 @@ export function escapeCsv(value: string | number) {
 
 export function roomLogCsv(rooms: RoomRecord[], labels: Record<Status, string>) {
   return [
-    "Room,Status,Follow-up,Last visited,Conversation notes",
+    "Room,Status,Priority,Follow-up,Last visited,Conversation notes",
     ...rooms.map((room) => [
       escapeCsv(room.roomNumber),
       escapeCsv(labels[room.status]),
+      escapeCsv(room.priority === 2 ? "Urgent" : room.priority === 1 ? "Soon" : "Normal"),
       escapeCsv(room.followUp === 1 ? "Yes" : "No"),
       escapeCsv(room.visitedAt ?? ""),
       escapeCsv(room.note),
@@ -44,4 +46,8 @@ export function roomLogCsv(rooms: RoomRecord[], labels: Record<Status, string>) 
 
 export function recordVisit(room: RoomRecord, visitedAt: string) {
   return { ...room, visitedAt };
+}
+
+export function sortByPriority(rooms: RoomRecord[]) {
+  return [...rooms].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.roomNumber.localeCompare(b.roomNumber));
 }
