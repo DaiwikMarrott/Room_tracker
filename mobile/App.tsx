@@ -19,6 +19,7 @@ import * as SQLite from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { filterRooms, progressCount, roomLogCsv } from "./src/trackerLogic";
 
 type Status = "pending" | "connected" | "not_answered";
 type Room = { roomNumber: string; status: Status; note: string; followUp: number };
@@ -84,9 +85,7 @@ function App() {
     return result;
   }, { pending: 0, connected: 0, not_answered: 0 } as Record<Status, number>), [rooms]);
 
-  const visibleRooms = rooms.filter((room) =>
-    room.roomNumber.includes(search) && (filter === "all" || room.status === filter) && (!showFollowUps || room.followUp === 1)
-  );
+  const visibleRooms = filterRooms(rooms, search, filter, showFollowUps);
   const nextRoom = rooms.find((room) => room.status === "pending");
 
   const updateRoom = (roomNumber: string, changes: Partial<Pick<Room, "status" | "note" | "followUp">>) => {
@@ -135,16 +134,7 @@ function App() {
       if (!(await Sharing.isAvailableAsync())) {
         throw new Error("Sharing is not available on this device.");
       }
-      const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-      const csv = [
-        "Room,Status,Follow-up,Conversation notes",
-        ...rooms.map((room) => [
-          escapeCsv(room.roomNumber),
-          escapeCsv(labels[room.status]),
-          escapeCsv(room.followUp === 1 ? "Yes" : "No"),
-          escapeCsv(room.note),
-        ].join(",")),
-      ].join("\n");
+      const csv = roomLogCsv(rooms, labels);
       const file = new File(Paths.cache, `courtyard-room-log-${new Date().toISOString().slice(0, 10)}.csv`);
       file.create({ overwrite: true });
       file.write(csv);
@@ -179,7 +169,7 @@ function App() {
         {exportError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{exportError}</Text><Pressable accessibilityLabel="Dismiss export error" accessibilityRole="button" onPress={() => setExportError(null)}><Text style={styles.errorDismiss}>×</Text></Pressable></View> : null}
         <View style={styles.summary}>
           <View style={styles.summaryHeading}><Text style={styles.kicker}>CHECK-IN PROGRESS</Text><Text style={styles.summaryLive}>● LIVE</Text></View>
-          <Text style={styles.total}>{counts.connected + counts.not_answered}<Text style={styles.totalSmall}> / {rooms.length}</Text></Text>
+          <Text style={styles.total}>{progressCount(rooms)}<Text style={styles.totalSmall}> / {rooms.length}</Text></Text>
           <Text style={styles.subtle}>rooms visited · saved on this phone</Text>
           <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${rooms.length ? ((counts.connected + counts.not_answered) / rooms.length) * 100 : 0}%` }]} /></View>
           <Pressable
