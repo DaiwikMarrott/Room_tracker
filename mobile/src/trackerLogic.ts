@@ -66,3 +66,7 @@ export function resetRooms(rooms: RoomRecord[]) {
     priority: 0,
   }));
 }
+
+export function isSessionComplete(rooms: RoomRecord[]) {
+  return rooms.length > 0 && rooms.every((room) => room.status !== "pending");
+}

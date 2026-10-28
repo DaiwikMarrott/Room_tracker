@@ -8,6 +8,7 @@ import {
   sortByPriority,
   withStatus,
   resetRooms,
+  isSessionComplete,
   type RoomRecord,
 } from "./trackerLogic";
 
@@ -59,5 +60,11 @@ describe("room tracker logic", () => {
   it("resets a session while keeping room numbers", () => {
     const reset = resetRooms([{ ...rooms[1], priority: 2, visitedAt: "y" }]);
     expect(reset[0]).toMatchObject({ roomNumber: "5211", status: "pending", note: "", followUp: 0, priority: 0, visitedAt: null });
+  });
+
+  it("only celebrates a non-empty fully checked session", () => {
+    expect(isSessionComplete([])).toBe(false);
+    expect(isSessionComplete(rooms)).toBe(false);
+    expect(isSessionComplete(rooms.map((room) => ({ ...room, status: "connected" })))).toBe(true);
   });
 });
