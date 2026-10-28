@@ -3,6 +3,7 @@ import {
   escapeCsv,
   filterRooms,
   progressCount,
+  recordVisit,
   roomLogCsv,
   type RoomRecord,
 } from "./trackerLogic";
@@ -28,7 +29,12 @@ describe("room tracker logic", () => {
 
   it("escapes CSV values and preserves notes", () => {
     expect(escapeCsv('a "quoted" note')).toBe('"a ""quoted"" note"');
-    expect(roomLogCsv(rooms, labels)).toContain('"5211","Connected","Yes","Said ""hello"""');
+    expect(roomLogCsv([recordVisit(rooms[1], "2026-10-28T12:00:00.000Z")], labels)).toContain('"5211","Connected","Yes","2026-10-28T12:00:00.000Z","Said ""hello"""');
+  });
+
+  it("records a visit without mutating the source room", () => {
+    const visited = recordVisit(rooms[0], "2026-10-28T12:00:00.000Z");
+    expect(visited.visitedAt).toBe("2026-10-28T12:00:00.000Z");
+    expect(rooms[0].visitedAt).toBeUndefined();
   });
 });
-

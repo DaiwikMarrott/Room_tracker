@@ -5,6 +5,7 @@ export type RoomRecord = {
   status: Status;
   note: string;
   followUp: number;
+  visitedAt?: string | null;
 };
 
 export function filterRooms(
@@ -30,13 +31,17 @@ export function escapeCsv(value: string | number) {
 
 export function roomLogCsv(rooms: RoomRecord[], labels: Record<Status, string>) {
   return [
-    "Room,Status,Follow-up,Conversation notes",
+    "Room,Status,Follow-up,Last visited,Conversation notes",
     ...rooms.map((room) => [
       escapeCsv(room.roomNumber),
       escapeCsv(labels[room.status]),
       escapeCsv(room.followUp === 1 ? "Yes" : "No"),
+      escapeCsv(room.visitedAt ?? ""),
       escapeCsv(room.note),
     ].join(",")),
   ].join("\n");
 }
 
+export function recordVisit(room: RoomRecord, visitedAt: string) {
+  return { ...room, visitedAt };
+}
