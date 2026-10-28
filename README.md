@@ -7,6 +7,14 @@ The repository's supported app is the native Expo application in [`mobile/`](./m
 
 Statuses and conversation notes are stored in SQLite on the device. The app does not require Safari, a local web server, a QR code, a shared Wi-Fi network, or an internet connection after it has loaded.
 
+The current app also supports:
+
+- One-tap visits, undo for status changes, and a next-room workflow.
+- Persistent follow-up flags and Normal/Soon/Urgent room priorities.
+- Last-visited timestamps and CSV export for backup or handoff.
+- Bulk updates for the currently visible rooms.
+- A confirmed new-session reset and animated floor-completion feedback.
+
 ## Test on an iPhone with Expo Go
 
 1. Install **Expo Go** from the iPhone App Store.
@@ -29,9 +37,12 @@ The header's **Export** action creates a CSV room log containing each room's sta
 
 ```bash
 cd mobile
+npm run test
 npx tsc --noEmit
 npx expo export --platform ios
 ```
+
+`npm run test` runs the Vitest suite in `mobile/src/trackerLogic.test.ts`. The tests cover room filtering, progress counting, CSV escaping/export shape, visit timestamps, priority ordering, bulk status updates, session reset behavior, and completion detection.
 
 For a standalone development build installed on a connected iPhone, use Xcode and Apple signing:
 
@@ -41,7 +52,7 @@ npx expo run:ios --device
 
 ## Data and privacy
 
-The mobile app creates `courtyard-room-tracker.db` in the app's private SQLite storage. Notes are not uploaded anywhere. Deleting the app deletes its local database. Use the in-app export action to keep a backup of important records.
+The mobile app creates `courtyard-room-tracker.db` in the app's private SQLite storage. Notes are not uploaded anywhere. The app migrates existing databases when new room fields are introduced. Deleting the app deletes its local database. Use the in-app export action to keep a backup of important records.
 
 The supplied source plan is stored at [`mobile/assets/courtyard-floor-plan.pdf`](./mobile/assets/courtyard-floor-plan.pdf). It is reference material; the room seed is kept in [`mobile/App.tsx`](./mobile/App.tsx) so the displayed list is explicit and reviewable.
 
@@ -54,33 +65,15 @@ mobile/package.json     Expo dependencies and scripts
 mobile/assets/          App icons and supplied floor-plan reference
 ```
 
-## 15-commit development plan
+## Development checks
 
-The repository currently has no commits. The intended history is fifteen small, independently pushed phases:
-
-1. `chore: scaffold expo mobile app`
-2. `feat: add floor room seed`
-3. `feat: add sqlite persistence`
-4. `feat: add room status cards`
-5. `feat: add connected and no-answer actions`
-6. `feat: add conversation notes`
-7. `feat: add progress summary`
-8. `feat: add room search`
-9. `feat: add status filters`
-10. `feat: polish mobile layout`
-11. `docs: document expo setup and privacy`
-12. `test: validate expo ios bundle`
-13. `feat: add local data export`
-14. `feat: add optional device backup`
-15. `release: publish courtyard room tracker v1`
-
-Before each push:
+Before pushing app changes:
 
 ```bash
 cd mobile
-npx tsc --noEmit
-npx expo export --platform ios
-git add .
-git commit -m "phase commit message"
-git push origin main
+npm run test
+npm run check
+npm run build:ios
 ```
+
+Keep native behavior local-first: status, note, follow-up, priority, and visit data should remain in SQLite unless the user explicitly chooses the CSV export action.
