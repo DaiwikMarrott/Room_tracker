@@ -19,7 +19,7 @@ import * as SQLite from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { filterRooms, progressCount, recordVisit, roomLogCsv, sortByPriority, withStatus } from "./src/trackerLogic";
+import { filterRooms, progressCount, recordVisit, resetRooms, roomLogCsv, sortByPriority, withStatus } from "./src/trackerLogic";
 
 type Status = "pending" | "connected" | "not_answered";
 type Room = { roomNumber: string; status: Status; note: string; followUp: number; visitedAt?: string | null; priority?: number };
@@ -46,6 +46,7 @@ function App() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [resetVisible, setResetVisible] = useState(false);
   const ambient = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -171,6 +172,15 @@ function App() {
     setBulkUpdating(false);
   };
 
+  const resetSession = () => {
+    const cleared = resetRooms(rooms);
+    db.runSync("UPDATE rooms SET status = 'pending', note = '', follow_up = 0, visited_at = NULL, priority = 0");
+    setRooms(cleared);
+    setSelected(null);
+    setLastStatusChange(null);
+    setResetVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
@@ -185,6 +195,7 @@ function App() {
           <Pressable accessibilityLabel="Export room log" accessibilityRole="button" disabled={exporting} onPress={exportRooms} style={({ pressed }) => [styles.exportButton, pressed && styles.exportPressed, exporting && styles.exportDisabled]}>
             <Text style={styles.exportIcon}>{exporting ? "…" : "↑"}</Text><Text style={styles.exportText}>{exporting ? "Preparing" : "Export"}</Text>
           </Pressable>
+          <Pressable accessibilityLabel="Start a new room check-in session" accessibilityRole="button" onPress={() => setResetVisible(true)} style={({ pressed }) => [styles.resetSessionButton, pressed && styles.exportPressed]}><Text style={styles.resetSessionText}>New session</Text></Pressable>
           <View style={styles.localBadge}><Text style={styles.localBadgeText}>ON DEVICE</Text></View>
         </View>
         </View>
@@ -261,6 +272,9 @@ function App() {
           </Pressable>
         )} />
       </View>
+      <Modal visible={resetVisible} transparent animationType="fade" onRequestClose={() => setResetVisible(false)}>
+        <View style={styles.confirmBackdrop}><View style={styles.confirmCard}><Text style={styles.confirmEyebrow}>START FRESH</Text><Text style={styles.confirmTitle}>New check-in session?</Text><Text style={styles.confirmText}>This clears statuses, notes, priorities, follow-up flags, and visit times on this device.</Text><View style={styles.confirmActions}><Pressable accessibilityLabel="Cancel new session" accessibilityRole="button" onPress={() => setResetVisible(false)} style={styles.confirmCancel}><Text style={styles.confirmCancelText}>Cancel</Text></Pressable><Pressable accessibilityLabel="Confirm new session" accessibilityRole="button" onPress={resetSession} style={styles.confirmReset}><Text style={styles.confirmResetText}>Reset rooms</Text></Pressable></View></View></View>
+      </Modal>
       <Modal visible={Boolean(selected)} animationType="slide" transparent onRequestClose={closeSelected}>
         <Pressable onPress={closeSelected} style={styles.modalBackdrop}>
           <KeyboardAvoidingView
@@ -316,7 +330,8 @@ const colors: Record<Status, string> = { pending: "#aeb8ad", connected: "#287d65
 const backgrounds: Record<Status, string> = { pending: "#10232d", connected: "#123d3c", not_answered: "#3c292d" };
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#08121a" }, background: { ...StyleSheet.absoluteFill, overflow: "hidden", backgroundColor: "#08121a" }, orb: { position: "absolute", borderRadius: 999 }, orbOne: { width: 300, height: 300, backgroundColor: "#00d6b4", top: -110, right: -80 }, orbTwo: { width: 260, height: 260, backgroundColor: "#7d5cff", bottom: 80, left: -150 }, container: { flex: 1, paddingHorizontal: 18 },
-  header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, brandBlock: { flexDirection: "row", alignItems: "center", gap: 11 }, brandMark: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#62f0d5", shadowColor: "#62f0d5", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }, brandMarkText: { color: "#08121a", fontSize: 14, fontWeight: "900", letterSpacing: -0.5 }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, headerActions: { alignItems: "flex-end", gap: 8 }, exportButton: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 18, backgroundColor: "#62f0d5", paddingHorizontal: 11, paddingVertical: 7 }, exportPressed: { transform: [{ scale: 0.94 }], backgroundColor: "#b1fff0" }, exportDisabled: { opacity: 0.65 }, exportIcon: { color: "#08121a", fontSize: 16, fontWeight: "900" }, exportText: { color: "#08121a", fontSize: 10, fontWeight: "800" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
+  header: { paddingTop: 18, paddingBottom: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, brandBlock: { flexDirection: "row", alignItems: "center", gap: 11 }, brandMark: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#62f0d5", shadowColor: "#62f0d5", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }, brandMarkText: { color: "#08121a", fontSize: 14, fontWeight: "900", letterSpacing: -0.5 }, kicker: { fontSize: 10, letterSpacing: 1.2, color: "#8da2ac", fontWeight: "700", marginBottom: 7 }, title: { fontSize: 36, letterSpacing: -1.8, fontWeight: "800", color: "#f5fbff" }, headerActions: { alignItems: "flex-end", gap: 8 }, exportButton: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 18, backgroundColor: "#62f0d5", paddingHorizontal: 11, paddingVertical: 7 }, resetSessionButton: { borderRadius: 18, borderWidth: 1, borderColor: "#4b5c62", paddingHorizontal: 11, paddingVertical: 7 }, resetSessionText: { color: "#a9bcc3", fontSize: 10, fontWeight: "800" }, exportPressed: { transform: [{ scale: 0.94 }], backgroundColor: "#b1fff0" }, exportDisabled: { opacity: 0.65 }, exportIcon: { color: "#08121a", fontSize: 16, fontWeight: "900" }, exportText: { color: "#08121a", fontSize: 10, fontWeight: "800" }, localBadge: { borderRadius: 20, borderWidth: 1, borderColor: "#29444f", paddingHorizontal: 10, paddingVertical: 7 }, localBadgeText: { fontSize: 9, color: "#62f0d5", fontWeight: "800" },
+  confirmBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#000000aa" }, confirmCard: { width: "100%", borderRadius: 22, backgroundColor: "#10232d", borderWidth: 1, borderColor: "#385766", padding: 22 }, confirmEyebrow: { color: "#f0c674", fontSize: 10, letterSpacing: 1.2, fontWeight: "800" }, confirmTitle: { color: "#f5fbff", fontSize: 24, fontWeight: "800", marginTop: 8 }, confirmText: { color: "#a9bcc3", fontSize: 13, lineHeight: 20, marginTop: 10 }, confirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 9, marginTop: 22 }, confirmCancel: { paddingVertical: 11, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#28424d" }, confirmCancelText: { color: "#f5fbff", fontSize: 12, fontWeight: "700" }, confirmReset: { paddingVertical: 11, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#d2805d" }, confirmResetText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   errorBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#4b282c", borderRadius: 12, borderWidth: 1, borderColor: "#a95455", padding: 11, marginBottom: 12 }, errorText: { flex: 1, color: "#ffd6d0", fontSize: 12 }, errorDismiss: { color: "#ffd6d0", fontSize: 22, paddingLeft: 10 },
   summary: { backgroundColor: "#102b35", borderRadius: 24, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "#1d4650", shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 5 }, summaryHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, summaryLive: { color: "#62f0d5", fontSize: 10, fontWeight: "800", letterSpacing: 1 }, total: { fontSize: 52, lineHeight: 56, fontWeight: "800", letterSpacing: -2.5, color: "#f5fbff" }, totalSmall: { fontSize: 18, letterSpacing: 0 }, subtle: { color: "#a9bcc3", fontSize: 12 }, progressTrack: { height: 10, backgroundColor: "#1b4550", borderRadius: 10, marginVertical: 17, overflow: "hidden" }, progressFill: { height: "100%", backgroundColor: "#62f0d5", borderRadius: 10 }, nextRoomButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#62f0d5", borderRadius: 13, padding: 11, marginBottom: 17 }, nextRoomDisabled: { backgroundColor: "#23434a" }, nextRoomPressed: { transform: [{ scale: 0.98 }], backgroundColor: "#a5fff0" }, nextRoomIcon: { color: "#08121a", fontSize: 23, fontWeight: "800", width: 30, textAlign: "center" }, nextRoomCopy: { flex: 1 }, nextRoomEyebrow: { color: "#246357", fontSize: 9, fontWeight: "800", letterSpacing: 1 }, nextRoomTitle: { color: "#08121a", fontSize: 13, fontWeight: "800", marginTop: 2 }, nextRoomDisabledText: { color: "#9bb6b8" }, nextRoomArrow: { color: "#08121a", fontSize: 25, fontWeight: "300" }, legend: { flexDirection: "row", gap: 12, flexWrap: "wrap" }, legendItem: { flexDirection: "row", alignItems: "center" }, dot: { width: 9, height: 9, borderRadius: 5, marginRight: 5 },
   undoBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#18343e", borderRadius: 13, borderWidth: 1, borderColor: "#2b5961", paddingVertical: 9, paddingHorizontal: 13, marginBottom: 12 }, undoText: { color: "#c5d5d8", fontSize: 12, fontWeight: "600" }, undoButton: { backgroundColor: "#f0c674", borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 }, undoButtonText: { color: "#08121a", fontSize: 11, fontWeight: "800" },

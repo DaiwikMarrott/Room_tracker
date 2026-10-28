@@ -55,3 +55,14 @@ export function sortByPriority(rooms: RoomRecord[]) {
 export function withStatus(rooms: RoomRecord[], status: Status) {
   return rooms.map((room) => ({ ...room, status }));
 }
+
+export function resetRooms(rooms: RoomRecord[]) {
+  return rooms.map((room) => ({
+    ...room,
+    status: "pending" as const,
+    note: "",
+    followUp: 0,
+    visitedAt: null,
+    priority: 0,
+  }));
+}

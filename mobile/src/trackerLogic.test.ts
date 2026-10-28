@@ -7,6 +7,7 @@ import {
   roomLogCsv,
   sortByPriority,
   withStatus,
+  resetRooms,
   type RoomRecord,
 } from "./trackerLogic";
 
@@ -53,5 +54,10 @@ describe("room tracker logic", () => {
     const updated = withStatus(rooms, "connected");
     expect(updated.every((room) => room.status === "connected")).toBe(true);
     expect(rooms[0].status).toBe("pending");
+  });
+
+  it("resets a session while keeping room numbers", () => {
+    const reset = resetRooms([{ ...rooms[1], priority: 2, visitedAt: "y" }]);
+    expect(reset[0]).toMatchObject({ roomNumber: "5211", status: "pending", note: "", followUp: 0, priority: 0, visitedAt: null });
   });
 });
