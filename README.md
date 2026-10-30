@@ -59,11 +59,30 @@ The supplied source plan is stored at [`mobile/assets/courtyard-floor-plan.pdf`]
 ## Project structure
 
 ```text
-mobile/App.tsx          Native UI, room list, statuses, notes, SQLite
-mobile/app.json         Expo app identity and native configuration
-mobile/package.json     Expo dependencies and scripts
-mobile/assets/          App icons and supplied floor-plan reference
+mobile/App.tsx                  Native UI, room list, statuses, notes, SQLite
+mobile/src/trackerLogic.ts      Testable room filtering, progress, export, and state helpers
+mobile/src/trackerLogic.test.ts Vitest coverage for room behavior
+mobile/app.json                 Expo app identity and native configuration
+mobile/package.json             Expo dependencies and scripts
+mobile/assets/                  App icons and supplied floor-plan reference
 ```
+
+## Contributing
+
+1. Make changes inside `mobile/`; do not commit generated `dist/` output or local Expo state.
+2. Keep room data local-first and preserve the SQLite migration path for existing installs.
+3. Run the complete validation sequence before opening a change:
+
+   ```bash
+   cd mobile
+   npm run test
+   npm run check
+   npm run build:ios
+   ```
+
+4. Describe behavior changes in the commit message and update this README when workflows or data fields change.
+
+The app is intentionally a single-screen Expo app. Keep reusable, deterministic behavior in `mobile/src/` so it can be tested without requiring a device; keep native UI and SQLite wiring in `mobile/App.tsx`.
 
 ## Development checks
 
