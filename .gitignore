@@ -1,4 +1,12 @@
+# Dependencies and generated output
 node_modules/
 dist/
 data/
+
+# Local Expo/SQLite state
+.expo/
+*.db
+*.db-*
+
+# Operating-system metadata
 .DS_Store
