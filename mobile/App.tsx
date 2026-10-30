@@ -20,6 +20,7 @@ import { StatusBar } from "expo-status-bar";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { filterRooms, isSessionComplete, progressCount, recordVisit, resetRooms, roomLogCsv, sortByPriority, withStatus } from "./src/trackerLogic";
+import { applyRoomChanges } from "./src/roomPersistence";
 
 type Status = "pending" | "connected" | "not_answered";
 type Room = { roomNumber: string; status: Status; note: string; followUp: number; visitedAt?: string | null; priority?: number };
@@ -121,8 +122,8 @@ function App() {
       changes.priority ?? null,
       roomNumber
     );
-    setSelected((current) => current?.roomNumber === roomNumber ? { ...current, ...changes } : current);
-    setRooms((current) => current.map((room) => room.roomNumber === roomNumber ? { ...room, ...changes } : room));
+    setSelected((current) => current?.roomNumber === roomNumber ? applyRoomChanges(current, changes) : current);
+    setRooms((current) => current.map((room) => room.roomNumber === roomNumber ? applyRoomChanges(room, changes) : room));
   };
 
   const closeSelected = () => {

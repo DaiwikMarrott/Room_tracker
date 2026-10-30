@@ -11,6 +11,7 @@ import {
   isSessionComplete,
   type RoomRecord,
 } from "./trackerLogic";
+import { applyRoomChanges, hasRequiredRoomColumns, requiredRoomColumns } from "./roomPersistence";
 
 const labels = { pending: "Not checked", connected: "Connected", not_answered: "Not answered" } as const;
 const rooms: RoomRecord[] = [
@@ -66,5 +67,23 @@ describe("room tracker logic", () => {
     expect(isSessionComplete([])).toBe(false);
     expect(isSessionComplete(rooms)).toBe(false);
     expect(isSessionComplete(rooms.map((room) => ({ ...room, status: "connected" })))).toBe(true);
+  });
+
+  it("preserves saved room fields when updating one field", () => {
+    const saved = { ...rooms[1], visitedAt: "2026-10-29T10:00:00.000Z", priority: 2 };
+    const updated = applyRoomChanges(saved, { note: "Updated note" });
+    expect(updated).toMatchObject({
+      roomNumber: "5211",
+      status: "connected",
+      followUp: 1,
+      visitedAt: "2026-10-29T10:00:00.000Z",
+      priority: 2,
+      note: "Updated note",
+    });
+  });
+
+  it("requires every persisted room column for a current schema", () => {
+    expect(hasRequiredRoomColumns(requiredRoomColumns)).toBe(true);
+    expect(hasRequiredRoomColumns(requiredRoomColumns.filter((column) => column !== "priority"))).toBe(false);
   });
 });
